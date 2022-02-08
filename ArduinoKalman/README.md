@@ -9,3 +9,9 @@ Other notes:
 - Weird spiking problem that might be due to the restricted range to +/- pi - investigate
 - No calibration
 - No power management
+
+
+KalmanUpload:
+ -slightly edited file from Kalman_sherry
+ -Includes upload to firebase
+ -Currently only uploads roll data
