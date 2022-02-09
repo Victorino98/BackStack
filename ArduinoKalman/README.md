@@ -14,4 +14,4 @@ Other notes:
 KalmanUpload:
  - slightly edited file from Kalman_sherry
  - Includes upload to firebase
- - Currently only uploads roll data
+ - Uploads: roll, pitch, gyroX, gyroY, kalmanX, kalmanY, compX, compY, timer
