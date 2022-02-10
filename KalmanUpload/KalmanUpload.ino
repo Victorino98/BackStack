@@ -4,13 +4,7 @@
 #include <Kalman.h> // Source: https://github.com/TKJElectronics/KalmanFilter
 #include <RTCZero.h>
 #include <Firebase_Arduino_WiFiNINA.h>
-
-
-#define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
-#define FIREBASE_HOST "filtereddatatest-default-rtdb.firebaseio.com"
-#define FIREBASE_AUTH "C2UsUF0ZSUmR8Ip9Nb0c12YAaSq4oSSJKN7WZkJH"
-#define WIFI_SSID "BELL038"
-#define WIFI_PASSWORD "5ED12D1FD376"
+#include "config.h"
 
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
@@ -20,6 +14,11 @@ RTCZero rtc;
 
 const byte READ = 0b11111111;     // SCP1000's read command
 const byte WRITE = 0b01111111;   // SCP1000's write command
+
+const char firebase_host[] = FIREBASE_HOST;
+const char firebase_auth[] = FIREBASE_AUTH;
+const char wifi_ssid[] = WIFI_SSID;
+const char wifi_password[] = WIFI_PASSWORD;
 
 String path = "/IMU_LSM6DS3";
 String jsonStr;
@@ -81,7 +80,7 @@ void setup() {
   Serial.print("Connecting to WiFi...");
   int status = WL_IDLE_STATUS;
   while (status != WL_CONNECTED) {
-    status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    status = WiFi.begin(wifi_ssid, wifi_password);
     Serial.print(".");
     delay(300);
   }
@@ -95,7 +94,7 @@ void setup() {
   rtc.setSeconds(seconds);
   milli=millis();
   
-  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
+  Firebase.begin(firebase_host, firebase_auth, wifi_ssid, wifi_password);
   Firebase.reconnectWiFi(true);
 }
 

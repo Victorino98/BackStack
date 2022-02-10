@@ -2,16 +2,32 @@
 #include <Arduino_LSM6DS3.h>
 #include <Wire.h>
 #include <Kalman.h> // Source: https://github.com/TKJElectronics/KalmanFilter
-
+#include <RTCZero.h>
+#include <Firebase_Arduino_WiFiNINA.h>
 
 
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
+#define FIREBASE_HOST "filtereddatatest-default-rtdb.firebaseio.com"
+#define FIREBASE_AUTH "C2UsUF0ZSUmR8Ip9Nb0c12YAaSq4oSSJKN7WZkJH"
+#define WIFI_SSID "BELL038"
+#define WIFI_PASSWORD "5ED12D1FD376"
 
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
 
+FirebaseData firebaseData;
+RTCZero rtc;
+
 const byte READ = 0b11111111;     // SCP1000's read command
 const byte WRITE = 0b01111111;   // SCP1000's write command
+
+String path = "/IMU_LSM6DS3";
+String jsonStr;
+const byte seconds=0;
+const byte minutes=0;
+const byte hours=0;
+const byte day=0;
+float milli;
 
 /* IMU Data */
 float ax, ay, az;
@@ -61,6 +77,26 @@ void setup() {
   compAngleY = pitch;
 
   timer = micros();
+  
+  Serial.print("Connecting to WiFi...");
+  int status = WL_IDLE_STATUS;
+  while (status != WL_CONNECTED) {
+    status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.print(" IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+
+  rtc.begin();
+  rtc.setHours(hours);
+  rtc.setMinutes(minutes);
+  rtc.setSeconds(seconds);
+  milli=millis();
+  
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH, WIFI_SSID, WIFI_PASSWORD);
+  Firebase.reconnectWiFi(true);
 }
 
 void loop() {
@@ -125,6 +161,48 @@ void loop() {
     gyroXangle = kalAngleX;
   if (gyroYangle < -180 || gyroYangle > 180)
     gyroYangle = kalAngleY;
+
+   /*Send data to firebase*/
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/roll", roll)) {
+    Serial.println(firebaseData.dataPath() + " = " + roll);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleX", gyroXangle)) {
+    Serial.println(firebaseData.dataPath() + " = " + gyroXangle);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
+    Serial.println(firebaseData.dataPath() + " = " + compAngleX);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleX", kalAngleX)) {
+    Serial.println(firebaseData.dataPath() + " = " + kalAngleX);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/pitch", pitch)) {
+    Serial.println(firebaseData.dataPath() + " = " + pitch);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleY", gyroYangle)) {
+    Serial.println(firebaseData.dataPath() + " = " + gyroYangle);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleY", compAngleY)) {
+    Serial.println(firebaseData.dataPath() + " = " + compAngleY);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleY", kalAngleY)) {
+    Serial.println(firebaseData.dataPath() + " = " + kalAngleY);
+  }
+  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/timeOfData", timer)) {
+    Serial.println(firebaseData.dataPath() + " = " + timer);
+  } 
+
+    
+  //Set up the JSON string to push to firebase.
+  jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
+  ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
+  
+  if (Firebase.pushJSON(firebaseData, path + "/2-pushJSON", jsonStr)) {
+    Serial.println(firebaseData.dataPath() + " = " + firebaseData.pushName());
+  }
+   
+  else {
+    Serial.println("Error: " + firebaseData.errorReason());
+  }
 
   /* Print Data */
 #if 0 // Set to 1 to activate
