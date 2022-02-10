@@ -1,7 +1,7 @@
 // Testing params
 
 #define RESTRICT_PITCH 
-//#define TESTING_CONNECTION
+#define TESTING_CONNECTION
 #define TESTING_KALMAN
 #define TESING_POWER
 
