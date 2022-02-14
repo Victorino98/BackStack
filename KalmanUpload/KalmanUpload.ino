@@ -28,6 +28,9 @@ const byte hours=0;
 const byte day=0;
 float milli;
 
+// power-saving measure testing
+#define BUTTON_PIN              10
+
 /* IMU Data */
 float ax, ay, az;
 float gx, gy, gz;
@@ -45,7 +48,6 @@ void setup() {
   Wire.begin();
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
-
     while (1);
   }
   delay(10);
@@ -60,6 +62,7 @@ void setup() {
   if (IMU.accelerationAvailable()) {
     IMU.readAcceleration(ax, ay, az);
   }
+  
   #ifdef RESTRICT_PITCH // Eq. 25 and 26
     double roll  = atan2(ay, az) * RAD_TO_DEG;
     double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
@@ -76,7 +79,8 @@ void setup() {
   compAngleY = pitch;
 
   timer = micros();
-  
+
+  #ifdef TESTING_CONNECTION
   Serial.print("Connecting to WiFi...");
   int status = WL_IDLE_STATUS;
   while (status != WL_CONNECTED) {
@@ -87,15 +91,23 @@ void setup() {
   Serial.print(" IP: ");
   Serial.println(WiFi.localIP());
   Serial.println();
+  #endif
 
   rtc.begin();
   rtc.setHours(hours);
   rtc.setMinutes(minutes);
   rtc.setSeconds(seconds);
   milli=millis();
+
+  #ifdef TESTING_CONNECTION
+    Firebase.begin(firebase_host, firebase_auth, wifi_ssid, wifi_password);
+    Firebase.reconnectWiFi(true);
+  #endif
   
-  Firebase.begin(firebase_host, firebase_auth, wifi_ssid, wifi_password);
-  Firebase.reconnectWiFi(true);
+  #ifdef TESTING_POWER
+    pinMode( BUTTON_PIN, INPUT_PULLUP );
+    attachInterrupt( digitalPinToInterrupt( BUTTON_PIN ), buttonHandler, CHANGE );
+  #endif
 }
 
 void loop() {
@@ -161,47 +173,49 @@ void loop() {
   if (gyroYangle < -180 || gyroYangle > 180)
     gyroYangle = kalAngleY;
 
-   /*Send data to firebase*/
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/roll", roll)) {
-    Serial.println(firebaseData.dataPath() + " = " + roll);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleX", gyroXangle)) {
-    Serial.println(firebaseData.dataPath() + " = " + gyroXangle);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
-    Serial.println(firebaseData.dataPath() + " = " + compAngleX);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleX", kalAngleX)) {
-    Serial.println(firebaseData.dataPath() + " = " + kalAngleX);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/pitch", pitch)) {
-    Serial.println(firebaseData.dataPath() + " = " + pitch);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleY", gyroYangle)) {
-    Serial.println(firebaseData.dataPath() + " = " + gyroYangle);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleY", compAngleY)) {
-    Serial.println(firebaseData.dataPath() + " = " + compAngleY);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleY", kalAngleY)) {
-    Serial.println(firebaseData.dataPath() + " = " + kalAngleY);
-  }
-  if (Firebase.setFloat(firebaseData, path + "/1-setDouble/timeOfData", timer)) {
-    Serial.println(firebaseData.dataPath() + " = " + timer);
-  } 
-
-    
-  //Set up the JSON string to push to firebase.
-  jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
-  ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
+  #ifdef TESTING_CONNECTION
+     /*Send data to firebase*/
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/roll", roll)) {
+      Serial.println(firebaseData.dataPath() + " = " + roll);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleX", gyroXangle)) {
+      Serial.println(firebaseData.dataPath() + " = " + gyroXangle);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
+      Serial.println(firebaseData.dataPath() + " = " + compAngleX);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleX", kalAngleX)) {
+      Serial.println(firebaseData.dataPath() + " = " + kalAngleX);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/pitch", pitch)) {
+      Serial.println(firebaseData.dataPath() + " = " + pitch);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleY", gyroYangle)) {
+      Serial.println(firebaseData.dataPath() + " = " + gyroYangle);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleY", compAngleY)) {
+      Serial.println(firebaseData.dataPath() + " = " + compAngleY);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleY", kalAngleY)) {
+      Serial.println(firebaseData.dataPath() + " = " + kalAngleY);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/timeOfData", timer)) {
+      Serial.println(firebaseData.dataPath() + " = " + timer);
+    } 
   
-  if (Firebase.pushJSON(firebaseData, path + "/2-pushJSON", jsonStr)) {
-    Serial.println(firebaseData.dataPath() + " = " + firebaseData.pushName());
-  }
-   
-  else {
-    Serial.println("Error: " + firebaseData.errorReason());
-  }
+    //Set up the JSON string to push to firebase.
+    jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
+    ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
+    
+    if (Firebase.pushJSON(firebaseData, path + "/2-pushJSON", jsonStr)) {
+      Serial.println(firebaseData.dataPath() + " = " + firebaseData.pushName());
+    }
+     
+    else {
+      Serial.println("Error: " + firebaseData.errorReason());
+    }
+  #endif
+    
 
   /* Print Data */
 #if 0 // Set to 1 to activate
@@ -237,6 +251,25 @@ void loop() {
 
   Serial.print("\r\n");
   delay(2);
+}
 
+void buttonHandler( void )
+{
+  Serial.println( "WHOA HEY BUTTON PUSHED" ); // probably need to debounce eventually 
+    #ifdef RESTRICT_PITCH // Eq. 25 and 26
+      double roll  = atan2(ay, az) * RAD_TO_DEG;
+      double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
+    #else // Eq. 28 and 29
+      double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
+      double pitch = atan2(-ax, az) * RAD_TO_DEG;
+    #endif
 
+    #ifdef TESTING_POWER
+      kalmanX.setAngle(roll); // Set starting angle
+      kalmanY.setAngle(pitch);
+      gyroXangle = roll;
+      gyroYangle = pitch;
+      compAngleX = roll;
+      compAngleY = pitch;
+    #endif
 }
