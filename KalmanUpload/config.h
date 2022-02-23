@@ -6,7 +6,7 @@
 #define TESING_POWER
 
 // Connectivity settings
-#define FIREBASE_HOST "filtereddatatest-default-rtdb.firebaseio.com"
-#define FIREBASE_AUTH "C2UsUF0ZSUmR8Ip9Nb0c12YAaSq4oSSJKN7WZkJH"
-#define WIFI_SSID "BELL038"
-#define WIFI_PASSWORD "5ED12D1FD376"
+#define FIREBASE_HOST "dummyvalue"
+#define FIREBASE_AUTH "dummyvalue"
+#define WIFI_SSID "dummyvalue"
+#define WIFI_PASSWORD "dummyvalue"
