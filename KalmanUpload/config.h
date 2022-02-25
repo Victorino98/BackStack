@@ -2,7 +2,11 @@
 
 #define RESTRICT_PITCH 
 //#define TESTING_CONNECTION
+<<<<<<< HEAD
 #define TESTING_KALMAN
+=======
+//#define TESTING_KALMAN
+>>>>>>> 309d8b31eb53515a01a76bd8cd4c180005dec01f
 #define TESTING_POWER
 #define TROUBLESHOOTING_TEXT
 
