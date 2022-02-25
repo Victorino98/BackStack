@@ -25,8 +25,11 @@ String jsonStr;
 const byte seconds=0;
 const byte minutes=0;
 const byte hours=0;
-const byte day=0;
+//const byte day=0;
+const int GMT=-5;
 float milli;
+String nodeName;
+String day,month,year;
 
 // power-saving measure testing
 #define BUTTON_PIN              10
@@ -94,10 +97,36 @@ void setup() {
   #endif
 
   rtc.begin();
-  rtc.setHours(hours);
-  rtc.setMinutes(minutes);
-  rtc.setSeconds(seconds);
+  //rtc.setHours(hours);
+  //rtc.setMinutes(minutes);
+  //rtc.setSeconds(seconds);
   milli=millis();
+
+  // Variable to represent epoch
+  unsigned long epoch;
+ 
+  // Variable for number of tries to NTP service
+  int numberOfTries = 0, maxTries = 1000000000000;
+  
+   // Get epoch
+  do {
+    epoch = WiFi.getTime();
+    numberOfTries++;
+  }
+ 
+  while ((epoch == 0));
+ 
+  if (numberOfTries == maxTries) {
+    Serial.print("NTP unreachable!!");
+    while (1);
+  }
+ 
+  else {
+    Serial.print("Epoch received: ");
+    Serial.println(epoch);
+    rtc.setEpoch(epoch);
+    Serial.println();
+  }
 
   #ifdef TESTING_CONNECTION
     Firebase.begin(firebase_host, firebase_auth, wifi_ssid, wifi_password);
@@ -111,9 +140,18 @@ void setup() {
 }
 
 void loop() {
+  float millisec, seconds, minutes, hours;
+  
   IMU.readAcceleration(ax,ay,az);
   IMU.readGyroscope(gx, gy, gz);
-
+  millisec=millis()-milli;
+  seconds=rtc.getSeconds();
+  minutes=rtc.getMinutes();
+  hours=rtc.getHours();
+  day=String(rtc.getDay());
+  month=String(rtc.getMonth());
+  year=String(rtc.getYear());
+  
   double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
   timer = micros();
 
@@ -175,7 +213,7 @@ void loop() {
 
   #ifdef TESTING_CONNECTION
      /*Send data to firebase*/
-    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/roll", roll)) {
+    /*if (Firebase.setFloat(firebaseData, path + "/1-setDouble/roll", roll)) {
       Serial.println(firebaseData.dataPath() + " = " + roll);
     }
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleX", gyroXangle)) {
@@ -183,11 +221,23 @@ void loop() {
     }
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
       Serial.println(firebaseData.dataPath() + " = " + compAngleX);
+    }*/
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/hour", hours)) {
+      Serial.println(firebaseData.dataPath() + " = " + hours);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/minute", minutes)) {
+      Serial.println(firebaseData.dataPath() + " = " + minutes);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/seconds", seconds)) {
+      Serial.println(firebaseData.dataPath() + " = " + seconds);
+    }
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/milliseconds", millisec)) {
+      Serial.println(firebaseData.dataPath() + " = " + millisec);
     }
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleX", kalAngleX)) {
       Serial.println(firebaseData.dataPath() + " = " + kalAngleX);
     }
-    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/pitch", pitch)) {
+    /*if (Firebase.setFloat(firebaseData, path + "/1-setDouble/pitch", pitch)) {
       Serial.println(firebaseData.dataPath() + " = " + pitch);
     }
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleY", gyroYangle)) {
@@ -195,7 +245,7 @@ void loop() {
     }
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleY", compAngleY)) {
       Serial.println(firebaseData.dataPath() + " = " + compAngleY);
-    }
+    }*/
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleY", kalAngleY)) {
       Serial.println(firebaseData.dataPath() + " = " + kalAngleY);
     }
@@ -204,10 +254,13 @@ void loop() {
     } 
   
     //Set up the JSON string to push to firebase.
-    jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
-    ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
+    //jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
+   // ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
+   
+    jsonStr= "{\"kalAngleX\":" + String(kalAngleX,6) + ",\"kalAngleY\":" + String(kalAngleY,6) +",\"Hours\":" + String(hours,6) +",\"Minutes\":" + String(minutes,6) +",\"Seconds\":" + String(seconds,6) +
+    ",\"Milliseconds\":" + String(millisec,6) +"}";
     
-    if (Firebase.pushJSON(firebaseData, path + "/2-pushJSON", jsonStr)) {
+    if (Firebase.pushJSON(firebaseData, path + "/"+year+"-"+month+"-"+day, jsonStr)) {
       Serial.println(firebaseData.dataPath() + " = " + firebaseData.pushName());
     }
      
