@@ -128,17 +128,24 @@ void setup() {
     Serial.println();
   }
 
+  
   #ifdef TESTING_CONNECTION
+    Serial.println("step 1");
     Firebase.begin(firebase_host, firebase_auth, wifi_ssid, wifi_password);
+    Serial.println("step 2");
     Firebase.reconnectWiFi(true);
+    Serial.println("step 3");
   #endif
   
   #ifdef TESTING_POWER
+  
     pinMode( BUTTON_PIN, INPUT_PULLUP );
-    attachInterrupt( digitalPinToInterrupt( BUTTON_PIN ), buttonHandler, CHANGE );
+    attachInterrupt( digitalPinToInterrupt( BUTTON_PIN ), buttonHandler, RISING );
   #endif
-}
 
+  Serial.println("flag");
+}
+ 
 void loop() {
   float millisec, seconds, minutes, hours;
   
@@ -150,7 +157,7 @@ void loop() {
   hours=rtc.getHours();
   day=String(rtc.getDay());
   month=String(rtc.getMonth());
-  year=String(rtc.getYear());
+  year=String(2000+rtc.getYear());
   
   double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
   timer = micros();
@@ -222,6 +229,7 @@ void loop() {
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
       Serial.println(firebaseData.dataPath() + " = " + compAngleX);
     }*/
+    Serial.println("flag 2");
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/hour", hours)) {
       Serial.println(firebaseData.dataPath() + " = " + hours);
     }
@@ -252,7 +260,7 @@ void loop() {
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/timeOfData", timer)) {
       Serial.println(firebaseData.dataPath() + " = " + timer);
     } 
-  
+    Serial.println("flag 3");
     //Set up the JSON string to push to firebase.
     //jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
    // ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
