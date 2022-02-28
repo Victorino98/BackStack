@@ -7,11 +7,11 @@ Needs the following libraries:
 Other notes:
 - Current configured to collect at 104Hz for both acceleration and gyro - not high enough
 - Weird spiking problem that might be due to the restricted range to +/- pi - investigate
-- No calibration
-- No power management
+- calibration?
+- power management testing
 
 
 KalmanUpload:
- - slightly edited file from Kalman_sherry
+ - edited file from Kalman_sherry
  - Includes upload to firebase
- - Uploads: roll, pitch, gyroX, gyroY, kalmanX, kalmanY, compX, compY, timer
+ - Uploads: kalmanX, kalmanY, hour, minute, second. 
