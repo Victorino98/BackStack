@@ -5,7 +5,7 @@
 #include <RTCZero.h>
 #include <Firebase_Arduino_WiFiNINA.h>
 #include "config.h"
-
+#include <ArduinoUniqueID.h>
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
 
@@ -30,9 +30,10 @@ const int GMT=-5;
 float milli;
 String nodeName;
 String day,month,year;
+String serialID="";
 
 // power-saving measure testing
-#define BUTTON_PIN              10
+#define BUTTON_PIN              9
 
 /* IMU Data */
 float ax, ay, az;
@@ -130,11 +131,11 @@ void setup() {
 
   
   #ifdef TESTING_CONNECTION
-    Serial.println("step 1");
+    //Serial.println("step 1");
     Firebase.begin(firebase_host, firebase_auth, wifi_ssid, wifi_password);
-    Serial.println("step 2");
+    //Serial.println("step 2");
     Firebase.reconnectWiFi(true);
-    Serial.println("step 3");
+    //Serial.println("step 3");
   #endif
   
   #ifdef TESTING_POWER
@@ -143,7 +144,14 @@ void setup() {
     attachInterrupt( digitalPinToInterrupt( BUTTON_PIN ), buttonHandler, RISING );
   #endif
 
-  Serial.println("flag");
+  //Serial.println("flag");
+
+  //Getting serial ID in HEX
+  UniqueIDdump(Serial);
+  for(size_t i = 0; i < UniqueIDsize; i++){
+    serialID=serialID+String((UniqueID[i]), HEX);
+  }
+  path=serialID;
 }
  
 void loop() {
@@ -229,7 +237,7 @@ void loop() {
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
       Serial.println(firebaseData.dataPath() + " = " + compAngleX);
     }*/
-    Serial.println("flag 2");
+    //Serial.println("flag 2");
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/hour", hours)) {
       Serial.println(firebaseData.dataPath() + " = " + hours);
     }
@@ -260,7 +268,7 @@ void loop() {
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/timeOfData", timer)) {
       Serial.println(firebaseData.dataPath() + " = " + timer);
     } 
-    Serial.println("flag 3");
+    //Serial.println("flag 3");
     //Set up the JSON string to push to firebase.
     //jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
    // ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
@@ -316,7 +324,30 @@ void loop() {
 
 void buttonHandler( void )
 {
-  Serial.println( "WHOA HEY BUTTON PUSHED" ); // probably need to debounce eventually 
+  static unsigned long last_interrupt_time = 0;
+  unsigned long interrupt_time = millis();
+  if (interrupt_time - last_interrupt_time > 200) 
+  {
+    #ifdef RESTRICT_PITCH // Eq. 25 and 26
+      double roll  = atan2(ay, az) * RAD_TO_DEG;
+      double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
+    #else // Eq. 28 and 29
+      double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
+      double pitch = atan2(-ax, az) * RAD_TO_DEG;
+    #endif
+
+    #ifdef TESTING_POWER
+      Serial.println("WOAH BUTTON PUSHED");
+      kalmanX.setAngle(roll); // Set starting angle
+      kalmanY.setAngle(pitch);
+      gyroXangle = roll;
+      gyroYangle = pitch;
+      compAngleX = roll;
+      compAngleY = pitch;
+    #endif
+  }
+  last_interrupt_time = interrupt_time;
+  /*Serial.println( "WHOA HEY BUTTON PUSHED" ); // probably need to debounce eventually 
     #ifdef RESTRICT_PITCH // Eq. 25 and 26
       double roll  = atan2(ay, az) * RAD_TO_DEG;
       double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
@@ -332,5 +363,5 @@ void buttonHandler( void )
       gyroYangle = pitch;
       compAngleX = roll;
       compAngleY = pitch;
-    #endif
+    #endif*/
 }
