@@ -33,7 +33,7 @@ String day,month,year;
 String serialID="";
 
 // power-saving measure testing
-#define BUTTON_PIN              9
+#define BUTTON_PIN              10
 
 /* IMU Data */
 float ax, ay, az;
@@ -102,7 +102,7 @@ void setup() {
   //rtc.setMinutes(minutes);
   //rtc.setSeconds(seconds);
   milli=millis();
-
+  #ifdef TESTING_CONNECTION
   // Variable to represent epoch
   unsigned long epoch;
  
@@ -128,7 +128,7 @@ void setup() {
     rtc.setEpoch(epoch);
     Serial.println();
   }
-
+  #endif
   
   #ifdef TESTING_CONNECTION
     //Serial.println("step 1");
@@ -141,6 +141,7 @@ void setup() {
   #ifdef TESTING_POWER
   
     pinMode( BUTTON_PIN, INPUT_PULLUP );
+    pinMode(LED_BUILTIN, OUTPUT);
     attachInterrupt( digitalPinToInterrupt( BUTTON_PIN ), buttonHandler, RISING );
   #endif
 
@@ -152,6 +153,14 @@ void setup() {
     serialID=serialID+String((UniqueID[i]), HEX);
   }
   path=serialID;
+  #ifdef TESTING_CONNECTION
+  if (Firebase.setString(firebaseData, String("Devices") + "/" + path, path)) {
+      Serial.println(firebaseData.dataPath() + " = " + path);
+  }
+  else {
+      Serial.println("Error: " + firebaseData.errorReason());
+    }
+  #endif
 }
  
 void loop() {
@@ -237,7 +246,7 @@ void loop() {
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
       Serial.println(firebaseData.dataPath() + " = " + compAngleX);
     }*/
-    //Serial.println("flag 2");
+    
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/hour", hours)) {
       Serial.println(firebaseData.dataPath() + " = " + hours);
     }
@@ -268,7 +277,7 @@ void loop() {
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/timeOfData", timer)) {
       Serial.println(firebaseData.dataPath() + " = " + timer);
     } 
-    //Serial.println("flag 3");
+    
     //Set up the JSON string to push to firebase.
     //jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
    // ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
