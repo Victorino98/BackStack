@@ -1,8 +1,11 @@
 // Testing params
 
 #define RESTRICT_PITCH 
-#define TESTING_CONNECTION
+
+//#define TESTING_CONNECTION
 #define TESTING_KALMAN
+
+//#define TESTING_KALMAN
 #define TESTING_POWER
 #define TROUBLESHOOTING_TEXT
 

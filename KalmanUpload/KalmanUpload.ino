@@ -2,29 +2,36 @@
 #include <Arduino_LSM6DS3.h>
 #include <Wire.h>
 #include <Kalman.h> // Source: https://github.com/TKJElectronics/KalmanFilter
-#include <RTCZero.h>
+//#include <RTCZero.h>
 #include <Firebase_Arduino_WiFiNINA.h>
 #include "config.h"
+
 #include <ArduinoUniqueID.h>
+#include <RTClib.h>
+
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
 
 FirebaseData firebaseData;
-RTCZero rtc;
+//RTCZero zrtc;
+RTC_DS3231 rtc;
 
 const byte READ = 0b11111111;     // SCP1000's read command
 const byte WRITE = 0b01111111;   // SCP1000's write command
 
-const char firebase_host[] = FIREBASE_HOST;
-const char firebase_auth[] = FIREBASE_AUTH;
-const char wifi_ssid[] = WIFI_SSID;
-const char wifi_password[] = WIFI_PASSWORD;
+#ifdef TESTING_CONNECTION
+  const char firebase_host[] = FIREBASE_HOST;
+  const char firebase_auth[] = FIREBASE_AUTH;
+  const char wifi_ssid[] = WIFI_SSID;
+  const char wifi_password[] = WIFI_PASSWORD;
+#endif
 
 String path = "/IMU_LSM6DS3";
 String jsonStr;
 const byte seconds=0;
 const byte minutes=0;
 const byte hours=0;
+
 //const byte day=0;
 const int GMT=-5;
 float milli;
@@ -32,8 +39,11 @@ String nodeName;
 String day,month,year;
 String serialID="";
 
+
 // power-saving measure testing
-#define BUTTON_PIN              10
+#define CALIBRATION_BUTTON              3
+#define WAKEUP_BUTTON                   9
+#define RTC_INTERRUPT                   10
 
 /* IMU Data */
 float ax, ay, az;
@@ -97,11 +107,13 @@ void setup() {
   Serial.println();
   #endif
 
+
   rtc.begin();
   //rtc.setHours(hours);
   //rtc.setMinutes(minutes);
   //rtc.setSeconds(seconds);
   milli=millis();
+
   #ifdef TESTING_CONNECTION
   // Variable to represent epoch
   unsigned long epoch;
@@ -139,10 +151,56 @@ void setup() {
   #endif
   
   #ifdef TESTING_POWER
-  
-    pinMode( BUTTON_PIN, INPUT_PULLUP );
-    pinMode(LED_BUILTIN, OUTPUT);
-    attachInterrupt( digitalPinToInterrupt( BUTTON_PIN ), buttonHandler, RISING );
+
+    // initializing the rtc
+    if(!rtc.begin()) {
+        Serial.println("Couldn't find RTC!");
+        Serial.flush();
+        while (1) delay(10);
+    }
+
+    if(rtc.lostPower()) {
+        // this will adjust to the date and time at compilation
+        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    }
+    
+    //we don't need the 32K Pin, so disable it
+    rtc.disable32K();
+    
+    pinMode( CALIBRATION_BUTTON, INPUT_PULLUP );
+    attachInterrupt( digitalPinToInterrupt( CALIBRATION_BUTTON ), calibButtonHandler, RISING );
+    pinMode( WAKEUP_BUTTON, INPUT_PULLUP);
+    attachInterrupt( digitalPinToInterrupt( WAKEUP_BUTTON), wakeupButtonHandler, RISING);
+    pinMode( RTC_INTERRUPT, INPUT_PULLUP);
+    attachInterrupt( digitalPinToInterrupt( RTC_INTERRUPT), rtcButtonHandler, FALLING);
+
+    rtc.clearAlarm(1);
+    rtc.clearAlarm(2);
+    
+    // stop oscillating signals at SQW Pin
+    // otherwise setAlarm1 will fail
+    rtc.writeSqwPinMode(DS3231_OFF);
+
+    // turn off alarm 2 (in case it isn't off already)
+    // again, this isn't done at reboot, so a previously set alarm could easily go overlooked
+    rtc.disableAlarm(2);
+
+    // schedule an alarm 10 seconds in the future
+    if(!rtc.setAlarm1(
+      rtc.now() + TimeSpan(10),
+      DS3231_A1_Second // alarm sends a ping every minute
+    )) {
+        Serial.println("Error, alarm wasn't set!");
+    }else {
+        Serial.println("Alarm will happen in 10 seconds!");
+    }
+  #endif
+
+  #ifdef TROUBLESHOOTING_TEXT
+    Serial.print("Troubleshooting message mode is ON.");
+  #else
+    Serial.print("Troubleshooting message mode is OFF.");
+
   #endif
 
   //Serial.println("flag");
@@ -164,7 +222,20 @@ void setup() {
 }
  
 void loop() {
+
   float millisec, seconds, minutes, hours;
+
+   char date[10] = "hh:mm:ss";
+
+  // resetting SQW and alarm 1 flag
+  // using setAlarm1, the next alarm could now be configurated
+  if(rtc.alarmFired(1)) {
+    rtc.now().toString(date);
+    Serial.print(date);
+    rtc.clearAlarm(1);
+    Serial.println(" Alarm cleared");
+  }
+
   
   IMU.readAcceleration(ax,ay,az);
   IMU.readGyroscope(gx, gy, gz);
@@ -195,31 +266,32 @@ void loop() {
 
   #ifdef RESTRICT_PITCH
   // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
-  if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
-    kalmanX.setAngle(roll);
-    compAngleX = roll;
-    kalAngleX = roll;
-    gyroXangle = roll;
-  } else
+    if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
+      kalmanX.setAngle(roll);
+      compAngleX = roll;
+      kalAngleX = roll;
+      gyroXangle = roll;
+    } else
+      kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
+
+    if (abs(kalAngleX) > 90)
+      gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
+      kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
+    #else
+  
+    // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
+    if ((pitch < -90 && kalAngleY > 90) || (pitch > 90 && kalAngleY < -90)) {
+      kalmanY.setAngle(pitch);
+      compAngleY = pitch;
+      kalAngleY = pitch;
+      gyroYangle = pitch;
+    } else
+      kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
+  
+    if (abs(kalAngleY) > 90)
+      gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
     kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
-
-  if (abs(kalAngleX) > 90)
-    gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
-  kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
-#else
-  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
-  if ((pitch < -90 && kalAngleY > 90) || (pitch > 90 && kalAngleY < -90)) {
-    kalmanY.setAngle(pitch);
-    compAngleY = pitch;
-    kalAngleY = pitch;
-    gyroYangle = pitch;
-  } else
-    kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
-
-  if (abs(kalAngleY) > 90)
-    gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
-  kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
-#endif
+  #endif
 
   gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
   gyroYangle += gyroYrate * dt;
@@ -237,13 +309,14 @@ void loop() {
 
   #ifdef TESTING_CONNECTION
      /*Send data to firebase*/
-    /*if (Firebase.setFloat(firebaseData, path + "/1-setDouble/roll", roll)) {
-      Serial.println(firebaseData.dataPath() + " = " + roll);
-    }
+
+    if (Firebase.setFloat(firebaseData, path + "/1-setDouble/roll", roll)) {
+      Serial.println(firebaseData.dataPath() + " = " + roll);}
+
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleX", gyroXangle)) {
-      Serial.println(firebaseData.dataPath() + " = " + gyroXangle);
-    }
+      Serial.println(firebaseData.dataPath() + " = " + gyroXangle);}
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleX", compAngleX)) {
+
       Serial.println(firebaseData.dataPath() + " = " + compAngleX);
     }*/
     
@@ -265,19 +338,21 @@ void loop() {
     /*if (Firebase.setFloat(firebaseData, path + "/1-setDouble/pitch", pitch)) {
       Serial.println(firebaseData.dataPath() + " = " + pitch);
     }
+
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/gyroAngleY", gyroYangle)) {
-      Serial.println(firebaseData.dataPath() + " = " + gyroYangle);
-    }
+      Serial.println(firebaseData.dataPath() + " = " + gyroYangle);}
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/compAngleY", compAngleY)) {
+
       Serial.println(firebaseData.dataPath() + " = " + compAngleY);
     }*/
+
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleY", kalAngleY)) {
-      Serial.println(firebaseData.dataPath() + " = " + kalAngleY);
-    }
+      Serial.println(firebaseData.dataPath() + " = " + kalAngleY);}
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/timeOfData", timer)) {
-      Serial.println(firebaseData.dataPath() + " = " + timer);
-    } 
-    
+
+      Serial.println(firebaseData.dataPath() + " = " + timer);} 
+  
+
     //Set up the JSON string to push to firebase.
     //jsonStr= "{\"Roll(angles)\":"+String(roll, 6)+",\"gyroAngleX\":" + String(gyroXangle,6) +",\"compAngleX\":" + String(compAngleX,6) +",\"kalAngleX\":" + String(kalAngleX,6) +
    // ",\"Pitch\":" + String(pitch,6) +",\"gyroAngleY\":" + String(gyroYangle,6) +",\"compAngleY\":" + String(compAngleY,6) +",\"kalAngleY\":" + String(kalAngleY,6) +"}";
@@ -295,48 +370,49 @@ void loop() {
   #endif
     
 
-  /* Print Data */
-#if 0 // Set to 1 to activate
-  Serial.print(ax); Serial.print("\t");
-  Serial.print(ay); Serial.print("\t");
-  Serial.print(az); Serial.print("\t");
+  // raw data (virtually useless for our purposes)
+  #if 0 // Set to 1 to activate
+    Serial.print(ax); Serial.print("\t");
+    Serial.print(ay); Serial.print("\t");
+    Serial.print(az); Serial.print("\t");
+  
+    Serial.print(gx); Serial.print("\t");
+    Serial.print(gy); Serial.print("\t");
+    Serial.print(gz); Serial.print("\t");
+  
+    Serial.print("\t");
+  #endif
 
-  Serial.print(gx); Serial.print("\t");
-  Serial.print(gy); Serial.print("\t");
-  Serial.print(gz); Serial.print("\t");
-
-  Serial.print("\t");
-#endif
-
-  Serial.print(roll); Serial.print("\t");
-  Serial.print(gyroXangle); Serial.print("\t");
-  Serial.print(compAngleX); Serial.print("\t");
-  Serial.print(kalAngleX); Serial.print("\t");
-
-  Serial.print("\t");
-
-  Serial.print(pitch); Serial.print("\t");
-  Serial.print(gyroYangle); Serial.print("\t");
-  Serial.print(compAngleY); Serial.print("\t");
-  Serial.print(kalAngleY); Serial.print("\t");
-
-#if 0 // Set to 1 to print the temperature
-  Serial.print("\t");
-
-  double temperature = (double)tempRaw / 340.0 + 36.53;
-  Serial.print(temperature); Serial.print("\t");
-#endif
-
-  Serial.print("\r\n");
-  delay(2);
+  #ifdef TESTING_KALMAN
+    // calculated data 
+    Serial.print(roll); Serial.print("\t");
+    Serial.print(gyroXangle); Serial.print("\t");
+    Serial.print(compAngleX); Serial.print("\t");
+    Serial.print(kalAngleX); Serial.print("\t");
+  
+    Serial.print("\t");
+  
+    Serial.print(pitch); Serial.print("\t");
+    Serial.print(gyroYangle); Serial.print("\t");
+    Serial.print(compAngleY); Serial.print("\t");
+    Serial.print(kalAngleY); Serial.print("\t");
+  
+    Serial.print("\r\n");
+    delay(2);
+  #endif
 }
 
-void buttonHandler( void )
-{
+void calibButtonHandler( void )
   static unsigned long last_interrupt_time = 0;
   unsigned long interrupt_time = millis();
   if (interrupt_time - last_interrupt_time > 200) 
   {
+
+  // sanity message
+  #ifdef TROUBLESHOOTING_TEXT
+    Serial.println( "Calibration button pushed" ); // probably need to debounce eventually 
+  #endif
+
     #ifdef RESTRICT_PITCH // Eq. 25 and 26
       double roll  = atan2(ay, az) * RAD_TO_DEG;
       double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
@@ -344,6 +420,17 @@ void buttonHandler( void )
       double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
       double pitch = atan2(-ax, az) * RAD_TO_DEG;
     #endif
+    
+    // actually performing the calibration 
+    kalmanX.setAngle(roll); // Set starting angle
+    kalmanY.setAngle(pitch);
+    gyroXangle = roll;
+    gyroYangle = pitch;
+    compAngleX = roll;
+    compAngleY = pitch;
+  #endif
+}
+
 
     #ifdef TESTING_POWER
       Serial.println("WOAH BUTTON PUSHED");
@@ -373,4 +460,27 @@ void buttonHandler( void )
       compAngleX = roll;
       compAngleY = pitch;
     #endif*/
+
+void wakeupButtonHandler( void )
+{
+  #ifdef TROUBLESHOOTING_TEXT
+    Serial.println( "Wakeup button pushed" ); // probably need to debounce eventually 
+  #endif
+
+  #ifdef TESTING_POWER
+    //
+  #endif
+}
+
+void rtcButtonHandler( void )
+{
+  
+  #ifdef TROUBLESHOOTING_TEXT
+    Serial.print( "RTC Activated ");
+  #endif
+  Serial.print("\n"); // probably need to debounce eventually 
+  #ifdef TESTING_POWER
+    //
+  #endif
+
 }
