@@ -6,6 +6,7 @@
 #include <Firebase_Arduino_WiFiNINA.h>
 #include "config.h"
 #include <RTClib.h>
+#include <Adafruit_SleepyDog.h>
 
 
 Kalman kalmanX; // Create the Kalman instances
@@ -34,9 +35,9 @@ const byte day=0;
 //float milli;
 
 // power-saving measure testing
-#define CALIBRATION_BUTTON              3
+#define CALIBRATION_BUTTON              10
 #define WAKEUP_BUTTON                   9
-#define RTC_INTERRUPT                   10
+#define RTC_INTERRUPT                   8
 
 /* IMU Data */
 float ax, ay, az;
@@ -52,6 +53,8 @@ uint8_t i2cData[14]; // Buffer for I2C data
 
 void setup() {
   Serial.begin(115200);
+  while(!Serial);
+  Serial.println("Serial up");
   Wire.begin();
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
@@ -302,6 +305,10 @@ void loop() {
   
     Serial.print("\r\n");
     delay(2);
+  #endif
+
+  #ifdef TESTING_POWER
+    int sleepMS = Watchdog.sleep();
   #endif
 }
 
