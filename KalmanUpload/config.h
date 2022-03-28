@@ -1,17 +1,18 @@
 // Testing params
 
 #define RESTRICT_PITCH 
+
 //#define TESTING_CONNECTION
-<<<<<<< HEAD
 #define TESTING_KALMAN
-=======
+
 //#define TESTING_KALMAN
->>>>>>> 309d8b31eb53515a01a76bd8cd4c180005dec01f
 #define TESTING_POWER
 #define TROUBLESHOOTING_TEXT
 
 // Connectivity settings
-#define FIREBASE_HOST "dummyvalue"
-#define FIREBASE_AUTH "dummyvalue"
-#define WIFI_SSID "dummyvalue"
-#define WIFI_PASSWORD "dummyvalue"
+#define FIREBASE_HOST "test2-529b3-default-rtdb.firebaseio.com"
+#define FIREBASE_AUTH "upS4WguJxNFu8HU7RykiGGufdx44HIPbfV3Z8VC6"
+#define WIFI_SSID "Gondor"
+#define WIFI_PASSWORD "5ED12D1FD376"
+//test2-529b3-default-rtdb.firebaseio.com/filtereddatatest-default-rtdb.firebaseio.com
+//upS4WguJxNFu8HU7RykiGGufdx44HIPbfV3Z8VC6/C2UsUF0ZSUmR8Ip9Nb0c12YAaSq4oSSJKN7WZkJH
