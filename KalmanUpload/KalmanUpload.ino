@@ -2,12 +2,11 @@
 #include <Arduino_LSM6DS3.h>
 #include <Wire.h>
 #include <Kalman.h> // Source: https://github.com/TKJElectronics/KalmanFilter
-//#include <RTCZero.h>
+#include <RTCZero.h>
 #include <Firebase_Arduino_WiFiNINA.h>
 #include "config.h"
 
 #include <Adafruit_SleepyDog.h>
-
 #include <ArduinoUniqueID.h>
 #include <RTClib.h>
 
@@ -15,7 +14,7 @@ Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
 
 FirebaseData firebaseData;
-//RTCZero zrtc;
+//RTCZero rtc;
 RTC_DS3231 rtc;
 
 const byte READ = 0b11111111;     // SCP1000's read command
@@ -201,9 +200,9 @@ void setup() {
   #endif
 
   #ifdef TROUBLESHOOTING_TEXT
-    Serial.print("Troubleshooting message mode is ON.");
+    Serial.println("Troubleshooting message mode is ON.");
   #else
-    Serial.print("Troubleshooting message mode is OFF.");
+    Serial.println("Troubleshooting message mode is OFF.");
 
   #endif
 
@@ -244,12 +243,15 @@ void loop() {
   IMU.readAcceleration(ax,ay,az);
   IMU.readGyroscope(gx, gy, gz);
   millisec=millis()-milli;
-  seconds=rtc.getSeconds();
-  minutes=rtc.getMinutes();
-  hours=rtc.getHours();
-  day=String(rtc.getDay());
-  month=String(rtc.getMonth());
-  year=String(2000+rtc.getYear());
+
+  DateTime now = rtc.now();
+  
+  seconds=now.second();
+  minutes=now.minute();
+  hours=now.hour();
+  day=String(now.day());
+  month=String(now.month());
+  year=String(2000+now.year());
   
   double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
   timer = micros();
@@ -410,9 +412,12 @@ void loop() {
   #endif
 }
 
-void calibButtonHandler( void )
+// CALIBRATION BUTTON INT SUBROUTINE
+void calibButtonHandler( void ){
   static unsigned long last_interrupt_time = 0;
   unsigned long interrupt_time = millis();
+  double pitch = 0;
+  double roll = 0;
   if (interrupt_time - last_interrupt_time > 200) 
   {
 
@@ -421,27 +426,15 @@ void calibButtonHandler( void )
     Serial.println( "Calibration button pushed" ); // probably need to debounce eventually 
   #endif
 
-    #ifdef RESTRICT_PITCH // Eq. 25 and 26
-      double roll  = atan2(ay, az) * RAD_TO_DEG;
-      double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
-    #else // Eq. 28 and 29
-      double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
-      double pitch = atan2(-ax, az) * RAD_TO_DEG;
-    #endif
-    
-    // actually performing the calibration 
-    kalmanX.setAngle(roll); // Set starting angle
-    kalmanY.setAngle(pitch);
-    gyroXangle = roll;
-    gyroYangle = pitch;
-    compAngleX = roll;
-    compAngleY = pitch;
-  #endif
-}
-
-
-    #ifdef TESTING_POWER
-      Serial.println("WOAH BUTTON PUSHED");
+//    #ifdef RESTRICT_PITCH // Eq. 25 and 26
+//      double roll  = atan2(ay, az) * RAD_TO_DEG;
+//      double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
+//    #else // Eq. 28 and 29
+//      double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
+//      double pitch = atan2(-ax, az) * RAD_TO_DEG;
+//    #endif
+    #ifdef TESTING_KALMAN
+      // calibration: setting the lateral and vertical angles to 0
       kalmanX.setAngle(roll); // Set starting angle
       kalmanY.setAngle(pitch);
       gyroXangle = roll;
@@ -449,7 +442,19 @@ void calibButtonHandler( void )
       compAngleX = roll;
       compAngleY = pitch;
     #endif
-  }
+}
+
+
+  #ifdef TESTING_POWER
+    Serial.println("WOAH BUTTON PUSHED");
+    kalmanX.setAngle(roll); // Set starting angle
+    kalmanY.setAngle(pitch);
+    gyroXangle = roll;
+    gyroYangle = pitch;
+    compAngleX = roll;
+    compAngleY = pitch;
+  #endif
+
   last_interrupt_time = interrupt_time;
   /*Serial.println( "WHOA HEY BUTTON PUSHED" ); // probably need to debounce eventually 
     #ifdef RESTRICT_PITCH // Eq. 25 and 26
@@ -468,7 +473,9 @@ void calibButtonHandler( void )
       compAngleX = roll;
       compAngleY = pitch;
     #endif*/
+}
 
+// WAKEUP BUTTON INT SUBROUTINE
 void wakeupButtonHandler( void )
 {
   #ifdef TROUBLESHOOTING_TEXT
@@ -480,6 +487,8 @@ void wakeupButtonHandler( void )
   #endif
 }
 
+
+// RTC INT SUBROUTINE
 void rtcButtonHandler( void )
 {
   
