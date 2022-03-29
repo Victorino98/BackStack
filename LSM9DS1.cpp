@@ -30,7 +30,7 @@
 #define LSM9DS1_CTRL_REG8          0x22
 #define LSM9DS1_OUT_X_XL           0x28
 
-// magnetometer
+//magnetometer
 #define LSM9DS1_ADDRESS_M          0x1e
 
 #define LSM9DS1_CTRL_REG1_M        0x20
