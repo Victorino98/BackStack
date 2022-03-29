@@ -266,6 +266,7 @@ LSM9DS1Class IMU(Wire);
 #endif
 */
 
+
 #include "LSM9DS1.h"
 
 #define LSM9DS1_ADDRESS            0x6b
@@ -477,7 +478,7 @@ float LSM9DS1Class::getAccelBW() //Bandwidth setting 0,1,2,3  see documentation 
     else return autoRange [ RegIs >> 5 ];
 }
 
-int LSM9DS1Class::setAccelFS(uint8_t range) // 0: ±2g ; 1: ±16g ; 2: ±4g ; 3: ±8g
+int LSM9DS1Class::setAccelFS(uint8_t range) // 0: Â±2g ; 1: Â±16g ; 2: Â±4g ; 3: Â±8g
 {	if (range >=4) return 0;
     range = (range & 0b00000011) << 3;
 	uint8_t setting = ((readRegister(LSM9DS1_ADDRESS, LSM9DS1_CTRL_REG6_XL) & 0xE7) | range);
@@ -667,13 +668,13 @@ void LSM9DS1Class::setMagnetSlope(float x, float y, float z)
    magnetSlope[2] = z ;
 }
 
-int LSM9DS1Class::setMagnetFS(uint8_t range) // 0=400.0; 1=800.0; 2=1200.0 , 3=1600.0  (µT)
+int LSM9DS1Class::setMagnetFS(uint8_t range) // 0=400.0; 1=800.0; 2=1200.0 , 3=1600.0  (ÂµT)
 {  if (range >=4) return 0;
    range = (range & 0b00000011) << 5;
    return writeRegister(LSM9DS1_ADDRESS_M, LSM9DS1_CTRL_REG2_M,range) ;
 }
 
-float LSM9DS1Class::getMagnetFS() //   dimensionless, but its value defaults to µT
+float LSM9DS1Class::getMagnetFS() //   dimensionless, but its value defaults to ÂµT
 { const float Ranges[] ={400.0, 800.0, 1200.0, 1600.0}; //
   uint8_t setting = readRegister(LSM9DS1_ADDRESS_M, LSM9DS1_CTRL_REG2_M)  >> 5;
   return  Ranges[setting] ;
