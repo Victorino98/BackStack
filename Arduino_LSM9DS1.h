@@ -24,6 +24,7 @@
 
 #endif
 */
+
 #ifndef _LSM9DS1_H_
 #define _LSM9DS1_H_
 
