@@ -61,6 +61,7 @@ class LSM9DS1Class {
 
 extern LSM9DS1Class IMU;
 */
+
 #ifndef LSM9DS1_V2
       #define LSM9DS1_V2
 #endif
@@ -127,14 +128,14 @@ class LSM9DS1Class {
     virtual float getAccelODR(); // Measured Sample Rate of the sensor.
     virtual float setAccelBW(uint8_t range); //0,1,2,3 Override autoBandwidth setting see doc.table 67
     virtual float getAccelBW();  //Bandwidth setting 0,1,2,3  see documentation table 67
-    virtual int   setAccelFS(uint8_t range); // 0: ±2g ; 1: ±24g ; 2: ±4g ; 3: ±8g
+    virtual int   setAccelFS(uint8_t range); // 0: Â±2g ; 1: Â±24g ; 2: Â±4g ; 3: Â±8g
     virtual float getAccelFS(); // Full Scale setting (output = 2.0,  24.0 , 4.0 , 8.0)
 
     // Gyroscope
     float gyroOffset[3] = {0,0,0};      // zero point offset correction factor for calibration
     float gyroSlope[3] = {1,1,1};  		// slope correction factor for calibration
     float gyroUnit = DEGREEPERSECOND;   // DEGREEPERSECOND  RADIANSPERSECOND REVSPERMINUTE REVSPERSECOND
-    virtual int   readGyro(float& x, float& y, float& z); // Return calibrated data in in unit of choise °/s or rad/s.
+    virtual int   readGyro(float& x, float& y, float& z); // Return calibrated data in in unit of choise Â°/s or rad/s.
     virtual int   readRawGyro(float& x, float& y, float& z); // Return uncalibrated results
     virtual int   gyroAvailable(); 		// Number of samples in the FIFO.
     virtual void  setGyroOffset(float x, float y, float z);  //Store zero-point measurements as offset
@@ -143,25 +144,25 @@ class LSM9DS1Class {
     virtual float getGyroODR(); // Measured Sample rate of the sensor.
     virtual int   setGyroBW(uint8_t range);  //Bandwidth setting 0,1,2,3  see documentation table 46 and 47
     virtual float getGyroBW();  //Bandwidth setting 0,1,2,3  see documentation table 46 and 47
-    virtual int   setGyroFS(uint8_t range); // (0= ±245 dps; 1= ±500 dps; 2= ±1000 dps; 3= ±2000 dps)
+    virtual int   setGyroFS(uint8_t range); // (0= Â±245 dps; 1= Â±500 dps; 2= Â±1000 dps; 3= Â±2000 dps)
     virtual float getGyroFS(); //  (output = 245.0,  500.0 , 1000.0, 2000.0)
 
     // Magnetometer
     float magnetOffset[3] = {0,0,0}; // zero point offset correction factor for calibration
     float magnetSlope[3] = {1,1,1};  // slope correction factor for calibration
     float magnetUnit = MICROTESLA;  //  GAUSS,  MICROTESLA NANOTESLA
-    virtual int   readMagnet(float& x, float& y, float& z); // Return calibrated data in unit of choise µT , nT or G
+    virtual int   readMagnet(float& x, float& y, float& z); // Return calibrated data in unit of choise ÂµT , nT or G
     virtual int   readRawMagnet(float& x, float& y, float& z); // Return uncalibrated results
     virtual int   magnetAvailable(); // Number of samples in the FIFO.
     virtual void  setMagnetOffset(float x, float y, float z);  //Store zero-point measurements as offset
     virtual void  setMagnetSlope(float x, float y, float z);   //Store measurements as slope
     virtual int   setMagnetODR(uint8_t range); // Sampling rate (0..8)->{0.625,1.25,2.5,5.0,10,20,40,80,400}Hz
     virtual float getMagnetODR(); // Sampling rate of the sensor in Hz.
-    virtual int   setMagnetFS(uint8_t range); // 0=±400.0; 1=±800.0; 2=±1200.0 , 3=±1600.0  (µT)
+    virtual int   setMagnetFS(uint8_t range); // 0=Â±400.0; 1=Â±800.0; 2=Â±1200.0 , 3=Â±1600.0  (ÂµT)
     virtual float getMagnetFS(); //  get chip's full scale setting
 
   private:
-    unsigned long ODRCalibrationTime=250000; //µs
+    unsigned long ODRCalibrationTime=250000; //Âµs
     float accelODR;					    // Stores the actual value of Output Data Rate
     float gyroODR;						// Stores the actual value of Output Data Rate
     float magnetODR;                    // Stores the actual value of Output Data Rate
