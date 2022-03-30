@@ -2,7 +2,7 @@
 #include <Arduino_LSM6DS3.h>
 #include <Wire.h>
 #include <Kalman.h> // Source: https://github.com/TKJElectronics/KalmanFilter
-#include <RTCZero.h>
+//#include <RTCZero.h>
 #include <Firebase_Arduino_WiFiNINA.h>
 #include "config.h"
 
@@ -20,6 +20,7 @@ RTC_DS3231 rtc;
 const byte READ = 0b11111111;     // SCP1000's read command
 const byte WRITE = 0b01111111;   // SCP1000's write command
 
+// Database and wifi info - info held in a config.h and changes depending on which dev is programming
 #ifdef TESTING_CONNECTION
   const char firebase_host[] = FIREBASE_HOST;
   const char firebase_auth[] = FIREBASE_AUTH;
@@ -27,6 +28,7 @@ const byte WRITE = 0b01111111;   // SCP1000's write command
   const char wifi_password[] = WIFI_PASSWORD;
 #endif
 
+// Setting up global variables for transmitting to our database
 String path = "/IMU_LSM6DS3";
 String jsonStr;
 const byte seconds=0;
@@ -40,8 +42,7 @@ String nodeName;
 String day,month,year;
 String serialID="";
 
-
-// power-saving measure testing
+// Pin definitions
 #define CALIBRATION_BUTTON              10
 #define WAKEUP_BUTTON                   9
 #define RTC_INTERRUPT                   8
@@ -88,6 +89,7 @@ void setup() {
     double pitch = atan2(-ax, az) * RAD_TO_DEG;
   #endif
 
+  // Setting starting angle
   kalmanX.setAngle(roll); // Set starting angle
   kalmanY.setAngle(pitch);
   gyroXangle = roll;
@@ -97,17 +99,18 @@ void setup() {
 
   timer = micros();
 
+  // Connecting to Wifi
   #ifdef TESTING_CONNECTION
-  Serial.print("Connecting to WiFi...");
-  int status = WL_IDLE_STATUS;
-  while (status != WL_CONNECTED) {
-    status = WiFi.begin(wifi_ssid, wifi_password);
-    Serial.print(".");
-    delay(300);
-  }
-  Serial.print(" IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println();
+    Serial.print("Connecting to WiFi...");
+    int status = WL_IDLE_STATUS;
+    while (status != WL_CONNECTED) {
+      status = WiFi.begin(wifi_ssid, wifi_password);
+      Serial.print(".");
+      delay(300);
+    }
+    Serial.print(" IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.println();
   #endif
 
 
@@ -341,6 +344,8 @@ void loop() {
     if (Firebase.setFloat(firebaseData, path + "/1-setDouble/kalmanAngleX", kalAngleX)) {
       Serial.println(firebaseData.dataPath() + " = " + kalAngleX);
     }
+    
+    // Angles we don't need for now
     /*if (Firebase.setFloat(firebaseData, path + "/1-setDouble/pitch", pitch)) {
       Serial.println(firebaseData.dataPath() + " = " + pitch);
     }
@@ -420,68 +425,49 @@ void calibButtonHandler( void ){
   double roll = 0;
   if (interrupt_time - last_interrupt_time > 200) 
   {
+    // sanity message
+    #ifdef TROUBLESHOOTING_TEXT
+      Serial.println( "Calibration button pushed" ); // probably need to debounce eventually 
+    #endif
+  
+  //    #ifdef RESTRICT_PITCH // Eq. 25 and 26
+  //      double roll  = atan2(ay, az) * RAD_TO_DEG;
+  //      double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
+  //    #else // Eq. 28 and 29
+  //      double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
+  //      double pitch = atan2(-ax, az) * RAD_TO_DEG;
+  //    #endif
+//      #ifdef TESTING_KALMAN
+//        // calibration: setting the lateral and vertical angles to 0
+//        kalmanX.setAngle(roll); // Set starting angle
+//        kalmanY.setAngle(pitch);
+//        gyroXangle = roll;
+//        gyroYangle = pitch;
+//        compAngleX = roll;
+//        compAngleY = pitch;
+//      #endif
 
-  // sanity message
-  #ifdef TROUBLESHOOTING_TEXT
-    Serial.println( "Calibration button pushed" ); // probably need to debounce eventually 
-  #endif
-
-//    #ifdef RESTRICT_PITCH // Eq. 25 and 26
-//      double roll  = atan2(ay, az) * RAD_TO_DEG;
-//      double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
-//    #else // Eq. 28 and 29
-//      double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
-//      double pitch = atan2(-ax, az) * RAD_TO_DEG;
-//    #endif
-    #ifdef TESTING_KALMAN
-      // calibration: setting the lateral and vertical angles to 0
+      Serial.println("WOAH BUTTON PUSHED");
       kalmanX.setAngle(roll); // Set starting angle
       kalmanY.setAngle(pitch);
       gyroXangle = roll;
       gyroYangle = pitch;
       compAngleX = roll;
       compAngleY = pitch;
-    #endif
-}
-
-
-  #ifdef TESTING_POWER
-    Serial.println("WOAH BUTTON PUSHED");
-    kalmanX.setAngle(roll); // Set starting angle
-    kalmanY.setAngle(pitch);
-    gyroXangle = roll;
-    gyroYangle = pitch;
-    compAngleX = roll;
-    compAngleY = pitch;
-  #endif
+    }
 
   last_interrupt_time = interrupt_time;
-  /*Serial.println( "WHOA HEY BUTTON PUSHED" ); // probably need to debounce eventually 
-    #ifdef RESTRICT_PITCH // Eq. 25 and 26
-      double roll  = atan2(ay, az) * RAD_TO_DEG;
-      double pitch = atan(-ax / sqrt(ay * ay + az * az)) * RAD_TO_DEG;
-    #else // Eq. 28 and 29
-      double roll  = atan(ay / sqrt(ax * ax + az * az)) * RAD_TO_DEG;
-      double pitch = atan2(-ax, az) * RAD_TO_DEG;
-    #endif
-
-    #ifdef TESTING_POWER
-      kalmanX.setAngle(roll); // Set starting angle
-      kalmanY.setAngle(pitch);
-      gyroXangle = roll;
-      gyroYangle = pitch;
-      compAngleX = roll;
-      compAngleY = pitch;
-    #endif*/
 }
 
 // WAKEUP BUTTON INT SUBROUTINE
 void wakeupButtonHandler( void )
 {
+  // Sanity text
   #ifdef TROUBLESHOOTING_TEXT
     Serial.println( "Wakeup button pushed" ); // probably need to debounce eventually 
   #endif
-
+  
+  // Waking up the microcontroller from sleep and collecting 10 seconds of instant data
   #ifdef TESTING_POWER
     //
   #endif
@@ -491,11 +477,12 @@ void wakeupButtonHandler( void )
 // RTC INT SUBROUTINE
 void rtcButtonHandler( void )
 {
-  
+  // Sanity message
   #ifdef TROUBLESHOOTING_TEXT
-    Serial.print( "RTC Activated ");
+    Serial.println( "RTC Activated ");
   #endif
-  Serial.print("\n"); // probably need to debounce eventually 
+  
+  // Waking up the microcontroller to collect 10 seconds of data
   #ifdef TESTING_POWER
     //
   #endif
