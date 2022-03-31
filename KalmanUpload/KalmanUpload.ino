@@ -6,11 +6,17 @@
 #include <Firebase_Arduino_WiFiNINA.h>
 #include "config.h"
 #include <ArduinoUniqueID.h>
+
+//NEW
+#include <RTClib.h>
+
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
 
 FirebaseData firebaseData;
-RTCZero rtc;
+//EDITED
+RTCZero rtcz;
+RTC_DS3231 rtc;
 
 const byte READ = 0b11111111;     // SCP1000's read command
 const byte WRITE = 0b01111111;   // SCP1000's write command
@@ -125,7 +131,7 @@ void setup() {
   else {
     Serial.print("Epoch received: ");
     Serial.println(epoch);
-    rtc.setEpoch(epoch);
+    rtcz.setEpoch(epoch);
     Serial.println();
   }
   #endif
@@ -165,8 +171,29 @@ void setup() {
  
 void loop() {
   float millisec, seconds, minutes, hours;
-  
+
+  char date[10] = "hh:mm:ss";
+  // resetting SQW and alarm 1 flag
+  // using setAlarm1, the next alarm could now be configurated
+  if(rtc.alarmFired(1)) {
+    rtc.now().toString(date);
+    Serial.print(date);
+    rtc.clearAlarm(1);
+    Serial.println(" Alarm cleared");
+  }
   IMU.readAcceleration(ax,ay,az);
+  IMU.readGyroscope(gx, gy, gz);
+  millisec=millis()-milli;
+
+  DateTime now = rtc.now();
+  
+  seconds=now.second();
+  minutes=now.minute();
+  hours=now.hour();
+  day=String(now.day());
+  month=String(now.month());
+  year=String(now.year());
+  /*IMU.readAcceleration(ax,ay,az);
   IMU.readGyroscope(gx, gy, gz);
   millisec=millis()-milli;
   seconds=rtc.getSeconds();
@@ -175,7 +202,24 @@ void loop() {
   day=String(rtc.getDay());
   month=String(rtc.getMonth());
   year=String(2000+rtc.getYear());
-  
+  if (hours==0){
+    hours=20;
+  }
+  else if (hours==1){
+    hours=21;
+    //day=day-1;
+  }
+  else if (hours==2){
+    hours=22;
+    //day=day-1;
+  }
+  else if (hours==3){
+    hours=23;
+    //day=day-1;
+  }
+  else{
+    hours=hours-4;
+  }*/
   double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
   timer = micros();
 
